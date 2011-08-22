@@ -39,7 +39,14 @@ class UserTest < ActiveSupport::TestCase
         @user.reset_ldap_password!("changed","changed")
         should_be_validated @user, "changed", "password was not changed properly on the LDAP sevrer"
       end
-    
+      
+      should "not allow to change password if setting is false" do
+        should_be_validated @user, "secret"
+        ::Devise.ldap_update_password = false
+        @user.reset_ldap_password!("wrong_secret", "wrong_secret")
+        should_not_be_validated @user, "wrong_secret"
+        should_be_validated @user, "secret"
+      end
     end
   
     context "create new local user if user is in LDAP" do

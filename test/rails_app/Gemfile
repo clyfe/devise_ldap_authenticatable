@@ -3,11 +3,13 @@ source 'http://rubygems.org'
 gem 'rails', '3.0.0'
 gem 'sqlite3-ruby', :require => 'sqlite3'
 
-gem "devise", "1.2.1"
+gem "devise", "1.3.4"
+gem "system_timer", :platforms => :mri_18
 gem "devise_ldap_authenticatable", :path => "../../"
 
 group :test do
-  gem "ruby-debug19"
+  gem "ruby-debug", :platforms => :mri_18
+  gem "ruby-debug19", :platforms => :mri_19
   gem "mocha"
   gem "shoulda"
   gem 'factory_girl_rails'
@@ -17,6 +19,6 @@ group :test do
   gem "launchy"
   gem "autotest-rails"
   gem "ZenTest"
-  #gem "redgreen" # https://rails.lighthouseapp.com/projects/8994/tickets/5541-autotest-fail-with-rails-300-and-ruby-192p0-2010-08-18-revision-29036-x86_64-darwin1040
+  gem "redgreen", :platforms => :mri_18
   gem "autotest-growl"
 end

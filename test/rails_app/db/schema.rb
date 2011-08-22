@@ -20,8 +20,9 @@ ActiveRecord::Schema.define(:version => 20100708120448) do
   end
 
   create_table "users", :force => true do |t|
-    t.string   "email",                               :default => "", :null => false
-    t.string   "encrypted_password",   :limit => 128, :default => "", :null => false
+    t.string   "email"
+    t.string   "encrypted_password",   :limit => 128
+    t.boolean  "is_ldap",                             :default => false, :null => false
     t.string   "reset_password_token"
     t.string   "remember_token"
     t.datetime "remember_created_at"

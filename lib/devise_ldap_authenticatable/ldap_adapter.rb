@@ -1,49 +1,49 @@
 require "net/ldap"
-require 'timeout'
+begin
+  require 'system_timer'
+  DeviseLdapTimer = SystemTimer
+rescue LoadError
+  require 'timeout'
+  DeviseLdapTimer = Timeout
+end
 
 module Devise
 
   module LdapAdapter
     
     def self.valid_credentials?(login, password_plaintext)
-      options = {:login => login, 
-        :password => password_plaintext,
-        :ldap_auth_username_builder => ::Devise.ldap_auth_username_builder,
-        :admin => ::Devise.ldap_use_admin_to_bind}
-                 
+      options = build_ldap_options(login).merge(:password => password_plaintext)
       resource = LdapConnect.new(options)
       resource.authorized?
     end
     
     def self.update_password(login, new_password)
-      options = {:login => login,
-        :new_password => new_password,
-        :ldap_auth_username_builder => ::Devise.ldap_auth_username_builder,
-        :admin => ::Devise.ldap_use_admin_to_bind}
-                 
+      options = build_ldap_options(login).merge(:new_password => new_password)                 
       resource = LdapConnect.new(options)
       resource.change_password! if new_password.present? 
     end
     
     def self.get_groups(login)
-      options = {:login => login, 
-        :ldap_auth_username_builder => ::Devise.ldap_auth_username_builder,
-        :admin => ::Devise.ldap_use_admin_to_bind}
-
+      options = build_ldap_options(login)
       ldap = LdapConnect.new(options)
       ldap.user_groups
     end
     
     def self.get_dn(login)
-      options = {:login => login, 
-        :ldap_auth_username_builder => ::Devise.ldap_auth_username_builder,
-        :admin => ::Devise.ldap_use_admin_to_bind}
+      options = build_ldap_options(login)      
       resource = LdapConnect.new(options)
       resource.dn
     end
+    
+    def self.build_ldap_options(login)
+      { 
+        :login => login, 
+        :ldap_auth_username_builder => ::Devise.ldap_auth_username_builder,
+        :admin => ::Devise.ldap_use_admin_to_bind
+      }
+    end
 
     class LdapConnect
-
       attr_reader :ldap, :login, :attribute
       
       CONN_TIMEOUT = 10
@@ -71,18 +71,14 @@ module Devise
         @new_password = params[:new_password]
       end
 
-      def read_config
-        config = ::Devise.ldap_config || "#{Rails.root}/config/ldap.yml"
-        YAML.load(ERB.new(File.read(config)).result)[Rails.env]
-      end
-
       def dn
-        Timeout::timeout(CONN_TIMEOUT) do |sec|
+        ldap_entry = nil
+        DeviseLdapTimer.timeout(CONN_TIMEOUT) do
           DeviseLdapAuthenticatable::Logger.send("LDAP search: #{@attribute}=#{@login}")
           filter = Net::LDAP::Filter.eq(@attribute.to_s, @login.to_s)
-          ldap_entry = nil
           @ldap.search(:filter => filter) {|entry| ldap_entry = entry}
         end
+        
         if ldap_entry.nil?
           @ldap_auth_username_builder.call(@attribute, @login, @ldap)
         else
@@ -162,18 +158,7 @@ module Devise
       end
       
       private
-      
-      def bind(ldap)
-        begin
-          Timeout::timeout(CONN_TIMEOUT) do |sec|
-            result = ldap.bind
-          end
-        rescue Errno::ETIMEDOUT, Timeout::Error, Net::LDAP::LdapError
-          result = false
-        end
-        return result
-      end
-      
+            
       def self.admin
         ldap = LdapConnect.new(:admin => true).ldap
         
@@ -185,9 +170,22 @@ module Devise
         return ldap
       end
       
+      def bind(ldap)
+        DeviseLdapTimer.timeout(CONN_TIMEOUT) do
+          ldap.bind
+        end
+      rescue Errno::ETIMEDOUT, Timeout::Error, Net::LDAP::LdapError
+        false
+      end
+      
       def find_ldap_user(ldap)
         DeviseLdapAuthenticatable::Logger.send("Finding user: #{dn}")
         ldap.search(:base => dn, :scope => Net::LDAP::SearchScope_BaseObject).try(:first)
+      end
+      
+      def read_config
+        config = ::Devise.ldap_config || "#{Rails.root}/config/ldap.yml"
+        YAML.load(ERB.new(File.read(config)).result)[Rails.env]
       end
       
       def update_ldap(ops)

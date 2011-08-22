@@ -6,8 +6,9 @@ simultaneously with database_authenticatable.
 
 to use it:
 
+* add `t.database_authenticatable :null => true, :default => nil` to your users migration.  the `:default => nil` is to avoid empty duplicates error on email
 * add `t.ldap_authenticatable :null => false` to your users migration
-* add `devise :database_authenticatable, :default => nil, :ldap_authenticatable` in your user model (ldap after db), the `:default => nil` is to avoid empty duplicates error on email
+* add `devise :database_authenticatable, :ldap_authenticatable` in your user model (ldap after db)
 * push database_authenticable on pole position in warden stack `manager.default_strategies(:scope => :user).unshift :database_authenticatable` (to be tried before ldap)
 in the devise initializer at the bottom (config/initializers/devise.rb)
 * override `valid_password?` in your user model to rescue invalid hash (DB auth tryes to authenticate first but when it finds an invalid password_salt BCrypt errors and we want to silence it and return false).
@@ -25,10 +26,9 @@ and any other steps the original ldap_authenticable required as explained furthe
 
 Notable differences from the original:
 
-* updated to devise 1.2.1
-* removed update ldap password feature
+* updated to devise 1.3.4
 
-Tested only on mri 1.9.2
+Tested on mri 1.9.2 and ree 1.8.7
 
 Original README
 ===============
